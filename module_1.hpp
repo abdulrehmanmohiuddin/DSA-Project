@@ -40,11 +40,13 @@ private:
 public:
     Admin();
     
-    // --- THE 2 FEATURES ---
-    void addStudent();          // Feature 1
-    void displayAllStudents();  // Feature 2
+    // --- FEATURES ---
+    void addStudent();          // Feature 1: Create
+    void displayAllStudents();  // Feature 2: Read
+    void searchStudent();       // Feature 3: Search (New)
+    void deleteStudent();       // Feature 4: Delete (New)
 
-    // File Handling (Required to make features work)
+    // File Handling
     void saveToFile();
     void loadFromFile();
 };

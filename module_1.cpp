@@ -4,6 +4,7 @@
 
 using namespace std;
 
+
 Student::Student() {}
 Student::Student(string n, string reg, string room) 
     : name(n), regNo(reg), roomNo(room) {}
@@ -16,6 +17,7 @@ void Student::displayStudent() const {
     cout << "Reg No: " << regNo << " | Name: " << name << " | Room: " << roomNo << endl;
 }
 
+
 Admin::Admin() {}
 
 string Admin::getSafeString(const string& prompt) {
@@ -27,6 +29,7 @@ string Admin::getSafeString(const string& prompt) {
         cout << "Invalid input. Try again.\n";
     }
 }
+
 
 void Admin::addStudent() {
     cout << "\n--- Add New Student ---\n";
@@ -47,6 +50,7 @@ void Admin::addStudent() {
     saveToFile(); 
 }
 
+
 void Admin::displayAllStudents() {
     cout << "\n--- All Registered Students ---\n";
     if (studentDB.empty()) {
@@ -58,6 +62,34 @@ void Admin::displayAllStudents() {
     }
 }
 
+
+void Admin::searchStudent() {
+    cout << "\n--- Search Student ---\n";
+    string reg = getSafeString("Enter Reg No to search: ");
+    
+    if (studentDB.find(reg) != studentDB.end()) {
+        cout << "Student Found:\n";
+        studentDB[reg].displayStudent();
+    } else {
+        cout << "Error: Student not found.\n";
+    }
+}
+
+
+void Admin::deleteStudent() {
+    cout << "\n--- Delete Student ---\n";
+    string reg = getSafeString("Enter Reg No to delete: ");
+    
+    if (studentDB.find(reg) != studentDB.end()) {
+        studentDB.erase(reg);
+        cout << "Student deleted successfully.\n";
+        saveToFile();
+    } else {
+        cout << "Error: Student not found.\n";
+    }
+}
+
+// --- File Handling ---
 void Admin::saveToFile() {
     ofstream file(DB_FILE.c_str());
     if (file.is_open()) {
