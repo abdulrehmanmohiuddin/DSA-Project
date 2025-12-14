@@ -28,6 +28,35 @@ void MenuManager::clearBST(MenuItem* node) {
 }
 
 // ==========================================
+//           Core Helper: Date to Day
+// ==========================================
+
+int MenuManager::getDayIndexFromDate(string dateStr) {
+    // Format expected: DD-MM-YYYY (e.g., 21-11-2024)
+    int d, m, y;
+    char dash; // to consume the '-'
+    stringstream ss(dateStr);
+    
+    if (ss >> d >> dash >> m >> dash >> y) {
+        // Zeller's Congruence Algorithm for Day of Week
+        if (m < 3) { m += 12; y -= 1; }
+        int k = y % 100;
+        int j = y / 100;
+        int h = (d + 13 * (m + 1) / 5 + k + k / 4 + j / 4 + 5 * j) % 7;
+        
+        // Zeller: 0=Sat, 1=Sun, 2=Mon ... 6=Fri
+        // We want: 0=Mon ... 6=Sun
+        int mapToMySystem[] = {5, 6, 0, 1, 2, 3, 4}; 
+        return mapToMySystem[h];
+    }
+    return -1; // Error
+}
+
+bool MenuManager::isValidDate(string date) {
+    return (getDayIndexFromDate(date) != -1);
+}
+
+// ==========================================
 //           BST Operations (Database)
 // ==========================================
 
@@ -37,6 +66,43 @@ MenuItem* MenuManager::insert(MenuItem* node, MenuItem* newItem) {
         node->left = insert(node->left, newItem);
     else if (newItem->itemName > node->itemName) 
         node->right = insert(node->right, newItem);
+    return node;
+}
+
+MenuItem* MenuManager::search(MenuItem* node, string name) {
+    if (node == NULL || node->itemName == name) return node;
+    if (name < node->itemName) return search(node->left, name);
+    return search(node->right, name);
+}
+
+MenuItem* MenuManager::findMin(MenuItem* node) {
+    while (node->left != NULL) node = node->left;
+    return node;
+}
+
+MenuItem* MenuManager::deleteItem(MenuItem* node, string name) {
+    if (node == NULL) return node;
+    
+    if (name < node->itemName) 
+        node->left = deleteItem(node->left, name);
+    else if (name > node->itemName) 
+        node->right = deleteItem(node->right, name);
+    else {
+        // Found node
+        if (node->left == NULL) {
+            MenuItem* temp = node->right;
+            delete node;
+            return temp;
+        } else if (node->right == NULL) {
+            MenuItem* temp = node->left;
+            delete node;
+            return temp;
+        }
+        MenuItem* temp = findMin(node->right);
+        node->itemName = temp->itemName;
+        node->category = temp->category;
+        node->right = deleteItem(node->right, temp->itemName);
+    }
     return node;
 }
 
@@ -52,6 +118,36 @@ void MenuManager::inorder(MenuItem* node) {
 //           Admin Functions
 // ==========================================
 
+void MenuManager::addFoodItem() {
+    cout << "\n--- Add New Item to Database ---\n";
+    cout << "Enter Item Name (e.g., Biryani): ";
+    string name; getline(cin, name);
+    
+    if (search(root, name) != NULL) {
+        cout << "Error: '" << name << "' already exists in the database.\n";
+        return;
+    }
+    
+    cout << "Enter Category (Breakfast/Lunch/Dinner): ";
+    string cat; getline(cin, cat);
+    
+    MenuItem* newItem = new MenuItem(name, cat);
+    root = insert(root, newItem);
+    cout << "Item added to Master Database successfully.\n";
+}
+
+void MenuManager::deleteFoodItem() {
+    cout << "Enter Item Name to delete: ";
+    string name; getline(cin, name);
+    
+    if (search(root, name) == NULL) {
+        cout << "Error: Item not found.\n";
+        return;
+    }
+    root = deleteItem(root, name);
+    cout << "Item deleted from database.\n";
+}
+
 void MenuManager::displayFoodDB() {
     cout << "\n==== Master Food Database (BST) ====\n";
     if (root == NULL) {
@@ -62,4 +158,125 @@ void MenuManager::displayFoodDB() {
         inorder(root);
     }
     cout << "------------------------------------------\n";
+}
+
+void MenuManager::setDailyMenu() {
+    cout << "\n--- Set Weekly Menu Schedule ---\n";
+    cout << "Select Day to Update (or 0 to cancel):\n";
+    for(int i=0; i<7; i++) cout << i+1 << ". " << days[i] << endl;
+    
+    int choice;
+    cout << "Choice: ";
+    if (!(cin >> choice)) {
+        cout << "Invalid input.\n";
+        cin.clear(); cin.ignore(10000,'\n');
+        return;
+    }
+    cin.ignore(); // clear buffer
+    
+    if (choice == 0) return; 
+    if (choice < 1 || choice > 7) {
+        cout << "Invalid choice.\n";
+        return;
+    }
+    
+    int dayIdx = choice - 1;
+    cout << "\nUpdating Menu for: " << days[dayIdx] << endl;
+    cout << "(Enter '0' at any time to cancel and go back)\n";
+    
+    // 1. Breakfast
+    string b;
+    while(true) {
+        cout << "Set Breakfast Item: "; getline(cin, b);
+        if (b == "0") return; 
+        if (search(root, b) != NULL) break;
+        cout << "Error: '" << b << "' not found in DB. You must ADD it first (Option 2).\n";
+    }
+    
+    // 2. Lunch
+    string l;
+    while(true) {
+        cout << "Set Lunch Item: "; getline(cin, l);
+        if (l == "0") return; 
+        if (search(root, l) != NULL) break;
+        cout << "Error: '" << l << "' not found in DB.\n";
+    }
+    
+    // 3. Dinner
+    string d;
+    while(true) {
+        cout << "Set Dinner Item: "; getline(cin, d);
+        if (d == "0") return; 
+        if (search(root, d) != NULL) break;
+        cout << "Error: '" << d << "' not found in DB.\n";
+    }
+    
+    // 4. Set Daily Price
+    float price = getValidatedFloat("Enter Total Daily Rate (Rs) for this day: ");
+    
+    // Update Array
+    weeklySchedule[dayIdx].breakfast = b;
+    weeklySchedule[dayIdx].lunch = l;
+    weeklySchedule[dayIdx].dinner = d;
+    weeklySchedule[dayIdx].dailyPrice = price;
+    
+    cout << "Menu for " << days[dayIdx] << " updated successfully!\n";
+}
+
+void MenuManager::runAdminMenu() {
+    int choice;
+    do {
+        cout << "\n==== Menu Management (Admin) ====\n";
+        cout << "1. View Food Database (BST)\n";
+        cout << "2. Add New Food Item (to DB)\n";
+        cout << "3. Delete Food Item (from DB)\n";
+        cout << "4. Set Daily Menu & Price\n";
+        cout << "5. View Weekly Schedule\n";
+        cout << "6. Back\n";
+        cout << "Choice: ";
+        cin >> choice; cin.ignore();
+        
+        switch(choice) {
+            case 1: displayFoodDB(); break;
+            case 2: addFoodItem(); break;
+            case 3: deleteFoodItem(); break;
+            case 4: setDailyMenu(); break;
+            case 5: 
+                for(int i=0; i<7; i++) {
+                    cout << days[i] << ": " << weeklySchedule[i].dailyPrice << " Rs\n";
+                    cout << "   [B] " << weeklySchedule[i].breakfast 
+                         << " [L] " << weeklySchedule[i].lunch 
+                         << " [D] " << weeklySchedule[i].dinner << endl;
+                }
+                break;
+            case 6: return;
+        }
+    } while (choice != 6);
+}
+
+// ==========================================
+//           Student Interface
+// ==========================================
+
+void MenuManager::displayDayMenu(string date) {
+    int idx = getDayIndexFromDate(date);
+    if (idx == -1) {
+        cout << "Error: Invalid Date Format (Use DD-MM-YYYY)\n";
+        return;
+    }
+    
+    cout << "\n==== Menu for " << days[idx] << " (" << date << ") ====\n";
+    cout << "------------------------------------------\n";
+    cout << "Breakfast:  " << weeklySchedule[idx].breakfast << endl;
+    cout << "Lunch:      " << weeklySchedule[idx].lunch << endl;
+    cout << "Dinner:     " << weeklySchedule[idx].dinner << endl;
+    cout << "------------------------------------------\n";
+    cout << "Daily Rate: Rs. " << fixed << setprecision(2) << weeklySchedule[idx].dailyPrice << endl;
+    cout << "------------------------------------------\n";
+}
+
+float MenuManager::getDailyPrice(string date) {
+    int idx = getDayIndexFromDate(date);
+    if (idx != -1) return weeklySchedule[idx].dailyPrice;
+    return 0.0;
 }
