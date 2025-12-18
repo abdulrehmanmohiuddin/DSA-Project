@@ -31,6 +31,11 @@ void MenuManager::clearBST(MenuItem* node) {
 //           Core Helper: Date to Day
 // ==========================================
 
+/**
+ * @brief Converts a date string (DD-MM-YYYY) to a Day Index (0=Mon...6=Sun).
+ * Assumes a simple calculation or manual string parsing.
+ * For this project, we will use a robust standard C algorithm.
+ */
 int MenuManager::getDayIndexFromDate(string dateStr) {
     // Format expected: DD-MM-YYYY (e.g., 21-11-2024)
     int d, m, y;
@@ -131,9 +136,13 @@ void MenuManager::addFoodItem() {
     cout << "Enter Category (Breakfast/Lunch/Dinner): ";
     string cat; getline(cin, cat);
     
+    // Note: We don't ask for price here anymore, as per your instruction.
+    // The price is set per DAY, not per ITEM.
+    
     MenuItem* newItem = new MenuItem(name, cat);
     root = insert(root, newItem);
     cout << "Item added to Master Database successfully.\n";
+    saveFiles();
 }
 
 void MenuManager::deleteFoodItem() {
@@ -146,6 +155,7 @@ void MenuManager::deleteFoodItem() {
     }
     root = deleteItem(root, name);
     cout << "Item deleted from database.\n";
+    saveFiles();
 }
 
 void MenuManager::displayFoodDB() {
@@ -174,7 +184,7 @@ void MenuManager::setDailyMenu() {
     }
     cin.ignore(); // clear buffer
     
-    if (choice == 0) return; 
+    if (choice == 0) return; // FIX: Allow exiting immediately
     if (choice < 1 || choice > 7) {
         cout << "Invalid choice.\n";
         return;
@@ -188,7 +198,7 @@ void MenuManager::setDailyMenu() {
     string b;
     while(true) {
         cout << "Set Breakfast Item: "; getline(cin, b);
-        if (b == "0") return; 
+        if (b == "0") return; // FIX: Escape hatch
         if (search(root, b) != NULL) break;
         cout << "Error: '" << b << "' not found in DB. You must ADD it first (Option 2).\n";
     }
@@ -197,7 +207,7 @@ void MenuManager::setDailyMenu() {
     string l;
     while(true) {
         cout << "Set Lunch Item: "; getline(cin, l);
-        if (l == "0") return; 
+        if (l == "0") return; // FIX: Escape hatch
         if (search(root, l) != NULL) break;
         cout << "Error: '" << l << "' not found in DB.\n";
     }
@@ -206,7 +216,7 @@ void MenuManager::setDailyMenu() {
     string d;
     while(true) {
         cout << "Set Dinner Item: "; getline(cin, d);
-        if (d == "0") return; 
+        if (d == "0") return; // FIX: Escape hatch
         if (search(root, d) != NULL) break;
         cout << "Error: '" << d << "' not found in DB.\n";
     }
@@ -221,6 +231,7 @@ void MenuManager::setDailyMenu() {
     weeklySchedule[dayIdx].dailyPrice = price;
     
     cout << "Menu for " << days[dayIdx] << " updated successfully!\n";
+    saveFiles();
 }
 
 void MenuManager::runAdminMenu() {
@@ -234,7 +245,17 @@ void MenuManager::runAdminMenu() {
         cout << "5. View Weekly Schedule\n";
         cout << "6. Back\n";
         cout << "Choice: ";
-        cin >> choice; cin.ignore();
+        
+        // --- INPUT FIX START ---
+        if (!(cin >> choice)) {
+            cout << "Invalid input. Please enter a number.\n";
+            cin.clear();           // Reset error flag
+            cin.ignore(10000, '\n'); // Clear the invalid input
+            choice = 0;            // Set dummy value to loop again
+        } else {
+            cin.ignore(10000, '\n'); // Clear buffer on success
+        }
+        // --- INPUT FIX END ---
         
         switch(choice) {
             case 1: displayFoodDB(); break;
@@ -279,4 +300,74 @@ float MenuManager::getDailyPrice(string date) {
     int idx = getDayIndexFromDate(date);
     if (idx != -1) return weeklySchedule[idx].dailyPrice;
     return 0.0;
+}
+
+// ==========================================
+//           File Persistence
+// ==========================================
+
+void MenuManager::saveMenuRecursive(MenuItem* node, ofstream& file) {
+    if (node != NULL) {
+        file << node->itemName << "," << node->category << "\n";
+        saveMenuRecursive(node->left, file);
+        saveMenuRecursive(node->right, file);
+    }
+}
+
+void MenuManager::saveFiles() {
+    // 1. Save DB
+    ofstream dbFile(MENU_DB_FILE.c_str());
+    if (dbFile.is_open()) {
+        saveMenuRecursive(root, dbFile);
+        dbFile.close();
+    }
+    
+    // 2. Save Schedule
+    ofstream schFile(WEEKLY_FILE.c_str());
+    if (schFile.is_open()) {
+        for(int i=0; i<7; i++) {
+            schFile << weeklySchedule[i].breakfast << ","
+                    << weeklySchedule[i].lunch << ","
+                    << weeklySchedule[i].dinner << ","
+                    << weeklySchedule[i].dailyPrice << "\n";
+        }
+        schFile.close();
+    }
+}
+
+void MenuManager::loadFiles() {
+    // 1. Load DB
+    ifstream dbFile(MENU_DB_FILE.c_str());
+    string line;
+    if (dbFile.is_open()) {
+        while(getline(dbFile, line)) {
+            stringstream ss(line);
+            string name, cat;
+            if (getline(ss, name, ',') && getline(ss, cat, ',')) {
+                root = insert(root, new MenuItem(name, cat));
+            }
+        }
+        dbFile.close();
+    }
+    
+    // 2. Load Schedule
+    ifstream schFile(WEEKLY_FILE.c_str());
+    if (schFile.is_open()) {
+        for(int i=0; i<7; i++) {
+            if(getline(schFile, line)) {
+                stringstream ss(line);
+                string b, l, d, pStr;
+                getline(ss, b, ',');
+                getline(ss, l, ',');
+                getline(ss, d, ',');
+                getline(ss, pStr, ',');
+                
+                weeklySchedule[i].breakfast = b;
+                weeklySchedule[i].lunch = l;
+                weeklySchedule[i].dinner = d;
+                weeklySchedule[i].dailyPrice = (float)atof(pStr.c_str());
+            }
+        }
+        schFile.close();
+    }
 }
